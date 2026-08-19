@@ -67,7 +67,7 @@ function buildPopupContent(place){
   return container;
 }
 
-function renderMarkers(places){
+function renderMarkers(places, fit = true){
   markers.forEach(m => map.removeLayer(m));
   markers = [];
 
@@ -75,11 +75,12 @@ function renderMarkers(places){
     const marker = L.marker([place.lat, place.lng], { icon: makeIcon(place.category) });
     marker.bindPopup(buildPopupContent(place));
     marker.category = place.category;
+    marker.placeId = place.id;
     marker.addTo(map);
     markers.push(marker);
   });
 
-  fitMapToMarkers(places);
+  if(fit) fitMapToMarkers(places);
 }
 
 function fitMapToMarkers(places){
@@ -208,12 +209,19 @@ function jumpToPlace(place){
   document.getElementById('searchInput').value = place.name;
   hideSuggestions();
 
+  // Reset category filter to "All" so this place's marker is guaranteed visible
+  activeCategory = 'all';
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.category === 'all');
+  });
+  renderMarkers(allPlaces, false); // show full pin set, don't auto-fit — we're flying manually
+
   map.flyTo([place.lat, place.lng], 16);
 
-  L.popup()
-    .setLatLng([place.lat, place.lng])
-    .setContent(buildPopupContent(place))
-    .openOn(map);
+  const marker = markers.find(m => m.placeId === place.id);
+  if(marker){
+    marker.openPopup();
+  }
 }
 
 async function loadPlaces(){
