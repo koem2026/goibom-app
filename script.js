@@ -67,6 +67,20 @@ function renderMarkers(places){
     marker.addTo(map);
     markers.push(marker);
   });
+
+  fitMapToMarkers(places);
+}
+
+function fitMapToMarkers(places){
+  if(places.length === 0) return;
+
+  if(places.length === 1){
+    map.setView([places[0].lat, places[0].lng], 15);
+    return;
+  }
+
+  const bounds = L.latLngBounds(places.map(p => [p.lat, p.lng]));
+  map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
 }
 
 function applyFilters(){
