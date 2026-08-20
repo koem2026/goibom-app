@@ -47,6 +47,14 @@ function buildPopupContent(place){
   desc.textContent = place.description || '';
   container.appendChild(desc);
 
+  if(place.phone){
+    const phoneLink = document.createElement('a');
+    phoneLink.className = 'popup-phone';
+    phoneLink.href = `tel:${place.phone}`;
+    phoneLink.textContent = `📞 ${place.phone}`;
+    container.appendChild(phoneLink);
+  }
+
   const row = document.createElement('div');
   row.className = 'directions-row';
 
