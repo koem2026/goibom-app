@@ -19,15 +19,15 @@
     "id": 3,
     "name": "University of Uyo (Permanent Site)",
     "category": "education",
-    "lat": 5.0450,
-    "lng": 7.8877,
+    "lat": 5.027500,
+    "lng": 7.978716,
     "description": "Main campus of the University of Uyo, Use Offot."
   },
   {
     "id": 4,
     "name": "University of Uyo Teaching Hospital (UUTH)",
     "category": "hospital",
-    "lat": 5.0270,
+    "lat": 5.027500,
     "lng": 7.9370,
     "description": "Major teaching hospital serving Uyo and the wider state."
   },
