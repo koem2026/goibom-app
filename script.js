@@ -55,6 +55,14 @@ function buildPopupContent(place){
     container.appendChild(phoneLink);
   }
 
+  const streetViewLink = document.createElement('a');
+  streetViewLink.className = 'popup-streetview';
+  streetViewLink.href = `https://www.google.com/maps?layer=c&cbll=${place.lat},${place.lng}`;
+  streetViewLink.target = '_blank';
+  streetViewLink.rel = 'noopener';
+  streetViewLink.textContent = '🌐 Street View';
+  container.appendChild(streetViewLink);
+
   const row = document.createElement('div');
   row.className = 'directions-row';
 
