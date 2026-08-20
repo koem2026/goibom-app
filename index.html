@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoIbom — Find any place in Akwa Ibom</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>GoIbom</div>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search places…" aria-label="Search places" autocomplete="off">
+      <div id="suggestions" class="suggestions"></div>
+    </div>
+  </header>
+
+  <div class="filters" id="filters">
+    <button class="filter-btn active" data-category="all">All</button>
+    <button class="filter-btn" data-category="hotel">🏨 Hotels</button>
+    <button class="filter-btn" data-category="market">🛒 Markets</button>
+    <button class="filter-btn" data-category="hospital">🏥 Hospitals</button>
+    <button class="filter-btn" data-category="attraction">📍 Attractions</button>
+    <button class="filter-btn" data-category="airport">✈️ Airport</button>
+    <button class="filter-btn" data-category="education">🎓 Education</button>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

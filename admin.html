@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoIbom Admin</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="style.css" />
+<style>
+  .admin-wrap{ max-width: 480px; margin: 0 auto; padding: 24px 16px 60px; }
+  .admin-card{
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(244,239,225,0.14);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .admin-card h2{ font-size: 1.05rem; margin: 0 0 14px; }
+  label{ display:block; font-size: 0.82rem; color: var(--text-dim); margin: 12px 0 4px; }
+  input[type="text"], input[type="email"], input[type="password"], textarea, select{
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(244,239,225,0.2);
+    background: rgba(255,255,255,0.06);
+    color: var(--paper);
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  textarea{ min-height: 70px; resize: vertical; }
+  button{
+    margin-top: 16px;
+    background: var(--clay);
+    color: #1a0f0a;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.secondary{ background: var(--river); }
+  button.danger{ background: #b3432f; color: var(--paper); }
+  #pickerMap{ height: 240px; border-radius: 8px; margin-top: 10px; }
+  .coords-readout{ font-family: monospace; font-size: 0.8rem; color: var(--gold); margin-top: 6px; }
+  .place-row{
+    display:flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid rgba(244,239,225,0.1);
+    font-size: 0.85rem;
+  }
+  .place-row button{ width:auto; margin:0; padding: 6px 10px; font-size: 0.75rem; }
+  #statusMsg{ font-size: 0.82rem; color: var(--gold); margin-top: 10px; min-height: 1.2em; }
+  #logoutBtn{ background: transparent; border: 1px solid rgba(244,239,225,0.3); width:auto; padding: 8px 14px; }
+</style>
+</head>
+<body style="overflow:auto; height:auto;">
+
+<div class="admin-wrap">
+  <h1 style="font-size:1.3rem;">GoIbom Admin</h1>
+
+  <!-- LOGIN -->
+  <div class="admin-card" id="loginCard">
+    <h2>Log in</h2>
+    <label for="loginEmail">Email</label>
+    <input type="email" id="loginEmail" autocomplete="username">
+    <label for="loginPassword">Password</label>
+    <input type="password" id="loginPassword" autocomplete="current-password">
+    <button id="loginBtn">Log in</button>
+    <div id="loginStatus" style="font-size:0.82rem;color:#e2673b;margin-top:8px;"></div>
+  </div>
+
+  <!-- ADMIN PANEL (hidden until logged in) -->
+  <div id="adminPanel" style="display:none;">
+    <button id="logoutBtn">Log out</button>
+
+    <div class="admin-card">
+      <h2>Add a place</h2>
+      <label for="placeName">Name</label>
+      <input type="text" id="placeName" placeholder="e.g. Ibom Tropicana">
+
+      <label for="placeCategory">Category</label>
+      <select id="placeCategory">
+        <option value="hotel">🏨 Hotel</option>
+        <option value="market">🛒 Market</option>
+        <option value="hospital">🏥 Hospital</option>
+        <option value="attraction">📍 Attraction</option>
+        <option value="airport">✈️ Airport</option>
+        <option value="education">🎓 Education</option>
+      </select>
+
+      <label for="placeDescription">Description</label>
+      <textarea id="placeDescription" placeholder="Short description"></textarea>
+
+      <label>Tap the map to set the location</label>
+      <div id="pickerMap"></div>
+      <div class="coords-readout" id="coordsReadout">No location selected yet</div>
+
+      <button id="saveBtn">Save place</button>
+      <div id="statusMsg"></div>
+    </div>
+
+    <div class="admin-card">
+      <h2>Import starter data</h2>
+      <p style="font-size:0.82rem;color:var(--text-dim);">One-time import of the original 8 sample places from places.json into Firestore.</p>
+      <button class="secondary" id="importBtn">Import starter places</button>
+      <div id="importStatus" style="font-size:0.82rem;color:var(--gold);margin-top:8px;"></div>
+    </div>
+
+    <div class="admin-card">
+      <h2>Existing places</h2>
+      <div id="placesList">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyB0zvfNnBgAmm2rbX7btdKrMdb9u3ygHSU",
+    authDomain: "goibom.firebaseapp.com",
+    projectId: "goibom",
+    storageBucket: "goibom.firebasestorage.app",
+    messagingSenderId: "929310843147",
+    appId: "1:929310843147:web:e6846a73700df361b3020e"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  let pickerMap, pickerMarker, selectedLatLng = null;
+
+  function initPickerMap(){
+    pickerMap = L.map('pickerMap').setView([5.0378, 7.9128], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(pickerMap);
+
+    pickerMap.on('click', (e) => {
+      selectedLatLng = e.latlng;
+      document.getElementById('coordsReadout').textContent =
+        `Selected: ${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+
+      if(pickerMarker){ pickerMap.removeLayer(pickerMarker); }
+      pickerMarker = L.marker(e.latlng).addTo(pickerMap);
+    });
+  }
+
+  // --- AUTH ---
+  document.getElementById('loginBtn').addEventListener('click', () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    document.getElementById('loginStatus').textContent = '';
+
+    auth.signInWithEmailAndPassword(email, password)
+      .catch(err => {
+        document.getElementById('loginStatus').textContent = err.message;
+      });
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+
+  auth.onAuthStateChanged(user => {
+    if(user){
+      document.getElementById('loginCard').style.display = 'none';
+      document.getElementById('adminPanel').style.display = 'block';
+      if(!pickerMap) initPickerMap();
+      loadPlacesList();
+    } else {
+      document.getElementById('loginCard').style.display = 'block';
+      document.getElementById('adminPanel').style.display = 'none';
+    }
+  });
+
+  // --- SAVE PLACE ---
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    const name = document.getElementById('placeName').value.trim();
+    const category = document.getElementById('placeCategory').value;
+    const description = document.getElementById('placeDescription').value.trim();
+    const statusEl = document.getElementById('statusMsg');
+
+    if(!name || !selectedLatLng){
+      statusEl.textContent = 'Please enter a name and tap the map to set a location.';
+      return;
+    }
+
+    statusEl.textContent = 'Saving…';
+
+    db.collection('places').add({
+      name, category, description,
+      lat: selectedLatLng.lat,
+      lng: selectedLatLng.lng,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+      statusEl.textContent = '✓ Saved.';
+      document.getElementById('placeName').value = '';
+      document.getElementById('placeDescription').value = '';
+      selectedLatLng = null;
+      document.getElementById('coordsReadout').textContent = 'No location selected yet';
+      if(pickerMarker){ pickerMap.removeLayer(pickerMarker); pickerMarker = null; }
+      loadPlacesList();
+    })
+    .catch(err => { statusEl.textContent = 'Error: ' + err.message; });
+  });
+
+  // --- LIST + DELETE ---
+  function loadPlacesList(){
+    const listEl = document.getElementById('placesList');
+    db.collection('places').orderBy('name').get().then(snapshot => {
+      if(snapshot.empty){
+        listEl.innerHTML = '<p style="font-size:0.82rem;color:var(--text-dim);">No places yet.</p>';
+        return;
+      }
+      listEl.innerHTML = '';
+      snapshot.forEach(doc => {
+        const p = doc.data();
+        const row = document.createElement('div');
+        row.className = 'place-row';
+        row.innerHTML = `<span>${p.name}</span>`;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'danger';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', () => {
+          if(confirm(`Delete "${p.name}"?`)){
+            db.collection('places').doc(doc.id).delete().then(loadPlacesList);
+          }
+        });
+        row.appendChild(delBtn);
+        listEl.appendChild(row);
+      });
+    });
+  }
+
+  // --- ONE-TIME IMPORT FROM places.json ---
+  document.getElementById('importBtn').addEventListener('click', () => {
+    const statusEl = document.getElementById('importStatus');
+    statusEl.textContent = 'Importing…';
+
+    fetch('data/places.json')
+      .then(res => res.json())
+      .then(places => {
+        const batch = db.batch();
+        places.forEach(p => {
+          const ref = db.collection('places').doc();
+          batch.set(ref, {
+            name: p.name,
+            category: p.category,
+            description: p.description || '',
+            lat: p.lat,
+            lng: p.lng,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        });
+        return batch.commit();
+      })
+      .then(() => {
+        statusEl.textContent = '✓ Imported starter places.';
+        loadPlacesList();
+      })
+      .catch(err => { statusEl.textContent = 'Error: ' + err.message; });
+  });
+</script>
+
+</body>
+</html>
