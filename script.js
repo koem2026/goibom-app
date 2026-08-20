@@ -14,6 +14,10 @@ let markers = [];
 let allPlaces = [];
 let routingControl = null;
 let activeCategory = 'all';
+let watchId = null;
+let userMarker = null;
+let lastRerouteTime = 0;
+const REROUTE_INTERVAL_MS = 25000; // re-check route every 25s while navigating, not on every GPS tick
 
 function initMap(){
   map = L.map('map').setView([5.0378, 7.9128], 12); // centered on Uyo
@@ -123,36 +127,119 @@ function applyFilters(){
   renderMarkers(filtered);
 }
 
+function userLocationIcon(){
+  return L.divIcon({
+    className: 'user-location-icon',
+    html: '<div class="user-dot"><div class="user-dot-pulse"></div></div>',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11]
+  });
+}
+
+function ensureNavSummaryBar(){
+  let bar = document.getElementById('navSummary');
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'navSummary';
+    bar.innerHTML = `
+      <span id="navSummaryText">Getting your location…</span>
+      <button id="stopNavBtn">Stop</button>
+    `;
+    document.body.appendChild(bar);
+    document.getElementById('stopNavBtn').addEventListener('click', stopNavigation);
+  }
+  bar.style.display = 'flex';
+  return bar;
+}
+
+function updateNavSummary(distanceMeters, timeSeconds, mode){
+  const km = (distanceMeters / 1000).toFixed(1);
+  const mins = Math.round(timeSeconds / 60);
+  const icon = mode === 'walking' ? '🚶' : '🚗';
+  document.getElementById('navSummaryText').textContent = `${icon} ${km} km · ${mins} min`;
+}
+
+function stopNavigation(){
+  if(watchId !== null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  if(routingControl){
+    map.removeControl(routingControl);
+    routingControl = null;
+  }
+  if(userMarker){
+    map.removeLayer(userMarker);
+    userMarker = null;
+  }
+  const bar = document.getElementById('navSummary');
+  if(bar) bar.style.display = 'none';
+}
+
 function getDirectionsTo(place, mode = 'driving'){
   if(!navigator.geolocation){
     alert('Location access is not available on this device/browser.');
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
+  // Clear any previous navigation session first
+  stopNavigation();
+  ensureNavSummaryBar();
+
+  const routerConfig = mode === 'walking'
+    ? { serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1', profile: 'foot' }
+    : { serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1', profile: 'driving' };
+
+  let firstFix = true;
+
+  watchId = navigator.geolocation.watchPosition(
     position => {
       const from = L.latLng(position.coords.latitude, position.coords.longitude);
       const to = L.latLng(place.lat, place.lng);
 
-      if(routingControl){
-        map.removeControl(routingControl);
+      // Move (or create) the live "you are here" indicator
+      if(userMarker){
+        userMarker.setLatLng(from);
+      } else {
+        userMarker = L.marker(from, { icon: userLocationIcon(), zIndexOffset: 1000 }).addTo(map);
       }
 
-      const routerConfig = mode === 'walking'
-        ? { serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1', profile: 'foot' }
-        : { serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1', profile: 'driving' };
+      const now = Date.now();
 
-      routingControl = L.Routing.control({
-        router: L.Routing.osrmv1(routerConfig),
-        waypoints: [from, to],
-        routeWhileDragging: false,
-        addWaypoints: false,
-        draggableWaypoints: false
-      }).addTo(map);
+      if(firstFix){
+        firstFix = false;
+        lastRerouteTime = now;
+
+        routingControl = L.Routing.control({
+          router: L.Routing.osrmv1(routerConfig),
+          waypoints: [from, to],
+          routeWhileDragging: false,
+          addWaypoints: false,
+          draggableWaypoints: false,
+          fitSelectedRoutes: true
+        }).addTo(map);
+
+        routingControl.on('routesfound', e => {
+          const summary = e.routes[0].summary;
+          updateNavSummary(summary.totalDistance, summary.totalTime, mode);
+        });
+
+        routingControl.on('routingerror', () => {
+          document.getElementById('navSummaryText').textContent = 'Could not calculate route.';
+        });
+
+      } else if(now - lastRerouteTime > REROUTE_INTERVAL_MS){
+        // Periodically refresh the route from the updated position
+        // (not on every GPS tick, to be considerate of the free routing service)
+        lastRerouteTime = now;
+        routingControl.setWaypoints([from, to]);
+      }
     },
     () => {
       alert('Could not get your location. Please enable location access and try again.');
-    }
+      stopNavigation();
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
   );
 }
 
