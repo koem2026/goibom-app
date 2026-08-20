@@ -151,6 +151,15 @@ body{
   margin-bottom: 10px;
 }
 .popup-phone:active{ opacity: 0.7; }
+.popup-streetview{
+  display: block;
+  font-size: 0.85rem;
+  color: var(--river);
+  text-decoration: none;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.popup-streetview:active{ opacity: 0.7; }
 .directions-row{
   display: flex;
   gap: 8px;
