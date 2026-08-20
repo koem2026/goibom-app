@@ -11,9 +11,9 @@
     "id": 2,
     "name": "Victor Attah International Airport",
     "category": "airport",
-    "lat": 4.8556,
-    "lng": 7.9711,
-    "description": "Akwa Ibom State's main airport, south of Uyo."
+    "lat": 4.8736,
+    "lng": 8.0944,
+    "description": "Akwa Ibom State's main airport, southeast of Uyo."
   },
   {
     "id": 3,
@@ -35,9 +35,9 @@
     "id": 5,
     "name": "Godswill Akpabio International Stadium",
     "category": "attraction",
-    "lat": 5.0210,
-    "lng": 7.8930,
-    "description": "Major sports stadium and events venue in Uyo."
+    "lat": 5.0066,
+    "lng": 7.8858,
+    "description": "Major sports stadium and events venue in Uyo, home to Nigeria's Super Eagles."
   },
   {
     "id": 6,
@@ -64,4 +64,3 @@
     "description": "Well-known public square and landmark in the heart of Uyo."
   }
 ]
-
