@@ -96,8 +96,20 @@
       <label for="placePhone">Phone number (optional)</label>
       <input type="tel" id="placePhone" placeholder="e.g. 08012345678">
 
-      <label>Tap the map to set the location</label>
+      <label>Tap the map to set the location, or type coordinates directly</label>
       <div id="pickerMap"></div>
+
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;">
+          <label for="latInput" style="margin-top:0;">Latitude</label>
+          <input type="text" id="latInput" placeholder="e.g. 5.03780" inputmode="decimal">
+        </div>
+        <div style="flex:1;">
+          <label for="lngInput" style="margin-top:0;">Longitude</label>
+          <input type="text" id="lngInput" placeholder="e.g. 7.91280" inputmode="decimal">
+        </div>
+      </div>
+
       <div class="coords-readout" id="coordsReadout">No location selected yet</div>
 
       <button id="saveBtn">Save place</button>
@@ -146,14 +158,32 @@
     }).addTo(pickerMap);
 
     pickerMap.on('click', (e) => {
-      selectedLatLng = e.latlng;
-      document.getElementById('coordsReadout').textContent =
-        `Selected: ${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
-
-      if(pickerMarker){ pickerMap.removeLayer(pickerMarker); }
-      pickerMarker = L.marker(e.latlng).addTo(pickerMap);
+      setSelectedLocation(e.latlng.lat, e.latlng.lng, { moveMap: false });
     });
   }
+
+  function setSelectedLocation(lat, lng, opts = {}){
+    selectedLatLng = { lat, lng };
+    document.getElementById('coordsReadout').textContent = `Selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    document.getElementById('latInput').value = lat.toFixed(5);
+    document.getElementById('lngInput').value = lng.toFixed(5);
+
+    if(!pickerMap) initPickerMap();
+    if(pickerMarker){ pickerMap.removeLayer(pickerMarker); }
+    pickerMarker = L.marker([lat, lng]).addTo(pickerMap);
+    if(opts.moveMap !== false){ pickerMap.setView([lat, lng], 15); }
+  }
+
+  function handleManualCoordsInput(){
+    const lat = parseFloat(document.getElementById('latInput').value);
+    const lng = parseFloat(document.getElementById('lngInput').value);
+    if(!isNaN(lat) && !isNaN(lng)){
+      setSelectedLocation(lat, lng, { moveMap: true });
+    }
+  }
+
+  document.getElementById('latInput').addEventListener('change', handleManualCoordsInput);
+  document.getElementById('lngInput').addEventListener('change', handleManualCoordsInput);
 
   // --- AUTH ---
   document.getElementById('loginBtn').addEventListener('click', () => {
@@ -223,6 +253,8 @@
     document.getElementById('placeDescription').value = '';
     document.getElementById('placePhone').value = '';
     document.getElementById('placeCategory').value = 'hotel';
+    document.getElementById('latInput').value = '';
+    document.getElementById('lngInput').value = '';
     selectedLatLng = null;
     document.getElementById('coordsReadout').textContent = 'No location selected yet';
     document.getElementById('saveBtn').textContent = 'Save place';
@@ -236,15 +268,11 @@
     document.getElementById('placeCategory').value = p.category || 'hotel';
     document.getElementById('placeDescription').value = p.description || '';
     document.getElementById('placePhone').value = p.phone || '';
-    selectedLatLng = { lat: p.lat, lng: p.lng };
-    document.getElementById('coordsReadout').textContent = `Selected: ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
     document.getElementById('saveBtn').textContent = 'Update place';
     document.getElementById('cancelEditBtn').style.display = 'block';
 
     if(!pickerMap) initPickerMap();
-    pickerMap.setView([p.lat, p.lng], 15);
-    if(pickerMarker){ pickerMap.removeLayer(pickerMarker); }
-    pickerMarker = L.marker([p.lat, p.lng]).addTo(pickerMap);
+    setSelectedLocation(p.lat, p.lng, { moveMap: true });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
