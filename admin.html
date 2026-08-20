@@ -93,11 +93,15 @@
       <label for="placeDescription">Description</label>
       <textarea id="placeDescription" placeholder="Short description"></textarea>
 
+      <label for="placePhone">Phone number (optional)</label>
+      <input type="tel" id="placePhone" placeholder="e.g. 08012345678">
+
       <label>Tap the map to set the location</label>
       <div id="pickerMap"></div>
       <div class="coords-readout" id="coordsReadout">No location selected yet</div>
 
       <button id="saveBtn">Save place</button>
+      <button class="secondary" id="cancelEditBtn" style="display:none;">Cancel edit</button>
       <div id="statusMsg"></div>
     </div>
 
@@ -133,6 +137,7 @@
   const db = firebase.firestore();
 
   let pickerMap, pickerMarker, selectedLatLng = null;
+  let editingId = null;
 
   function initPickerMap(){
     pickerMap = L.map('pickerMap').setView([5.0378, 7.9128], 12);
@@ -176,11 +181,12 @@
     }
   });
 
-  // --- SAVE PLACE ---
+  // --- SAVE PLACE (add or update) ---
   document.getElementById('saveBtn').addEventListener('click', () => {
     const name = document.getElementById('placeName').value.trim();
     const category = document.getElementById('placeCategory').value;
     const description = document.getElementById('placeDescription').value.trim();
+    const phone = document.getElementById('placePhone').value.trim();
     const statusEl = document.getElementById('statusMsg');
 
     if(!name || !selectedLatLng){
@@ -190,23 +196,58 @@
 
     statusEl.textContent = 'Saving…';
 
-    db.collection('places').add({
-      name, category, description,
+    const data = {
+      name, category, description, phone,
       lat: selectedLatLng.lat,
-      lng: selectedLatLng.lng,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
-    .then(() => {
-      statusEl.textContent = '✓ Saved.';
-      document.getElementById('placeName').value = '';
-      document.getElementById('placeDescription').value = '';
-      selectedLatLng = null;
-      document.getElementById('coordsReadout').textContent = 'No location selected yet';
-      if(pickerMarker){ pickerMap.removeLayer(pickerMarker); pickerMarker = null; }
-      loadPlacesList();
-    })
-    .catch(err => { statusEl.textContent = 'Error: ' + err.message; });
+      lng: selectedLatLng.lng
+    };
+
+    const savePromise = editingId
+      ? db.collection('places').doc(editingId).update(data)
+      : db.collection('places').add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+    savePromise
+      .then(() => {
+        statusEl.textContent = editingId ? '✓ Updated.' : '✓ Saved.';
+        resetForm();
+        loadPlacesList();
+      })
+      .catch(err => { statusEl.textContent = 'Error: ' + err.message; });
   });
+
+  document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
+
+  function resetForm(){
+    editingId = null;
+    document.getElementById('placeName').value = '';
+    document.getElementById('placeDescription').value = '';
+    document.getElementById('placePhone').value = '';
+    document.getElementById('placeCategory').value = 'hotel';
+    selectedLatLng = null;
+    document.getElementById('coordsReadout').textContent = 'No location selected yet';
+    document.getElementById('saveBtn').textContent = 'Save place';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+    if(pickerMarker){ pickerMap.removeLayer(pickerMarker); pickerMarker = null; }
+  }
+
+  function loadPlaceIntoForm(id, p){
+    editingId = id;
+    document.getElementById('placeName').value = p.name || '';
+    document.getElementById('placeCategory').value = p.category || 'hotel';
+    document.getElementById('placeDescription').value = p.description || '';
+    document.getElementById('placePhone').value = p.phone || '';
+    selectedLatLng = { lat: p.lat, lng: p.lng };
+    document.getElementById('coordsReadout').textContent = `Selected: ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+    document.getElementById('saveBtn').textContent = 'Update place';
+    document.getElementById('cancelEditBtn').style.display = 'block';
+
+    if(!pickerMap) initPickerMap();
+    pickerMap.setView([p.lat, p.lng], 15);
+    if(pickerMarker){ pickerMap.removeLayer(pickerMarker); }
+    pickerMarker = L.marker([p.lat, p.lng]).addTo(pickerMap);
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   // --- LIST + DELETE ---
   function loadPlacesList(){
@@ -221,7 +262,18 @@
         const p = doc.data();
         const row = document.createElement('div');
         row.className = 'place-row';
-        row.innerHTML = `<span>${p.name}</span>`;
+        row.innerHTML = `<span>${p.name}${p.phone ? ' 📞' : ''}</span>`;
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '6px';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'secondary';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => loadPlaceIntoForm(doc.id, p));
+        btnGroup.appendChild(editBtn);
+
         const delBtn = document.createElement('button');
         delBtn.className = 'danger';
         delBtn.textContent = 'Delete';
@@ -230,7 +282,9 @@
             db.collection('places').doc(doc.id).delete().then(loadPlacesList);
           }
         });
-        row.appendChild(delBtn);
+        btnGroup.appendChild(delBtn);
+
+        row.appendChild(btnGroup);
         listEl.appendChild(row);
       });
     });
