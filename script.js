@@ -185,6 +185,7 @@ function getDirectionsTo(place, mode = 'driving'){
   // Clear any previous navigation session first
   stopNavigation();
   ensureNavSummaryBar();
+  document.getElementById('navSummaryText').textContent = 'Getting your location…';
 
   const routerConfig = mode === 'walking'
     ? { serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1', profile: 'foot' }
@@ -225,7 +226,8 @@ function getDirectionsTo(place, mode = 'driving'){
         });
 
         routingControl.on('routingerror', () => {
-          document.getElementById('navSummaryText').textContent = 'Could not calculate route.';
+          const label = mode === 'walking' ? 'walking' : 'driving';
+          document.getElementById('navSummaryText').textContent = `No ${label} route found for this location.`;
         });
 
       } else if(now - lastRerouteTime > REROUTE_INTERVAL_MS){
