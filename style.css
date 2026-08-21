@@ -204,6 +204,22 @@ body{
   100%{ transform: scale(1.4); opacity: 0; }
 }
 
+/* Leaflet Routing Machine turn-by-turn panel — force readable colors,
+   since it was inheriting our dark theme's light text on a light panel */
+.leaflet-routing-container{
+  background: var(--paper) !important;
+  color: #1a0f0a !important;
+  border-radius: 10px !important;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.leaflet-routing-container *{
+  color: #1a0f0a !important;
+}
+.leaflet-routing-alt table{
+  background: transparent !important;
+}
+
 /* Navigation summary bar */
 #navSummary{
   position: fixed;
@@ -231,4 +247,20 @@ body{
   font-weight: 600;
   font-size: 0.82rem;
   cursor: pointer;
+}
+
+/* Leaflet Routing Machine turn-by-turn panel — force readable dark text */
+.leaflet-routing-container{
+  background: var(--paper) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+  font-family: inherit !important;
+  max-width: 280px;
+}
+.leaflet-routing-container,
+.leaflet-routing-container *{
+  color: #1a0f0a !important;
+}
+.leaflet-routing-alt{
+  max-height: 220px;
 }
